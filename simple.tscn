@@ -1,0 +1,44 @@
+[gd_scene load_steps=9 format=3 uid="uid://cwwniedgvkspm"]
+
+[ext_resource type="Script" uid="uid://d3mkhet6vwp00" path="res://simple.gd" id="1_oet81"]
+[ext_resource type="Texture2D" uid="uid://c6128cj7v7rvv" path="res://s1.png" id="1_qlnjk"]
+[ext_resource type="Script" uid="uid://b3ngrlouj62ix" path="res://sprite.gd" id="3_68hca"]
+[ext_resource type="Texture2D" uid="uid://b0xuuh1gsa822" path="res://sip.png" id="4_68hca"]
+[ext_resource type="Script" uid="uid://bycktvrsrh4j2" path="res://wander.gd" id="5_u4emj"]
+[ext_resource type="Texture2D" uid="uid://bdej6pnipk28h" path="res://wander.png" id="6_uti7t"]
+[ext_resource type="Script" uid="uid://djfcw267y37h5" path="res://ufo.gd" id="7_v1v2w"]
+[ext_resource type="Texture2D" uid="uid://bglk8yeqkrdee" path="res://ufo.png" id="8_y37ej"]
+
+[node name="Simple" type="Node2D"]
+script = ExtResource("1_oet81")
+
+[node name="character" type="CharacterBody2D" parent="."]
+position = Vector2(1536, 808)
+
+[node name="Sprite2D" type="Sprite2D" parent="character"]
+position = Vector2(0, 1)
+texture = ExtResource("1_qlnjk")
+
+[node name="sprite" type="CharacterBody2D" parent="."]
+script = ExtResource("3_68hca")
+
+[node name="Sprite2D" type="Sprite2D" parent="sprite"]
+texture = ExtResource("4_68hca")
+
+[node name="sprite2" type="CharacterBody2D" parent="."]
+script = ExtResource("3_68hca")
+
+[node name="Sprite2D" type="Sprite2D" parent="sprite2"]
+texture = ExtResource("4_68hca")
+
+[node name="wander" type="CharacterBody2D" parent="."]
+script = ExtResource("5_u4emj")
+
+[node name="Sprite2D" type="Sprite2D" parent="wander"]
+texture = ExtResource("6_uti7t")
+
+[node name="ufo" type="CharacterBody2D" parent="."]
+script = ExtResource("7_v1v2w")
+
+[node name="Sprite2D" type="Sprite2D" parent="ufo"]
+texture = ExtResource("8_y37ej")

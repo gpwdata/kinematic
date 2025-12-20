@@ -1,0 +1,64 @@
+# Godot-specific ignores
+.godot/
+.import/
+export_presets.cfg
+project.godot.import
+
+# Editor config
+.editorconfig
+
+# Godot 4+ specific
+.godot/
+
+# Imported files (reimported from .import/)
+*.import
+
+# Mono-specific (C# projects)
+bin/
+obj/
+*.csproj
+*.sln
+*.user
+
+# Build results
+builds/
+export/
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor backups
+*~
+*.swp
+*.swo
+*#
+.#*
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# IDE-specific
+.vscode/
+.idea/
+*.iml
+
+# Python (if using GDScript tools)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Node modules (if using any JS tools)
+node_modules/

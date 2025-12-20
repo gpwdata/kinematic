@@ -1,0 +1,118 @@
+[gd_scene load_steps=8 format=3 uid="uid://dho76edhdsi7q"]
+
+[ext_resource type="Script" uid="uid://bai0ywxe2fbub" path="res://kinem.gd" id="1_5qrtu"]
+[ext_resource type="Texture2D" uid="uid://dghempqhqio0e" path="res://icon.svg" id="1_u34la"]
+[ext_resource type="Script" uid="uid://vixgm5krpcrh" path="res://SteeringAgent.gd" id="3_ngfp4"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_5qrtu"]
+size = Vector2(127, 128)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ngfp4"]
+size = Vector2(129, 127)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
+size = Vector2(1300, 30)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_vertical"]
+size = Vector2(30, 1488)
+
+[node name="Node2D" type="Node2D"]
+script = ExtResource("1_5qrtu")
+
+[node name="target" type="CharacterBody2D" parent="."]
+position = Vector2(575, 300)
+scale = Vector2(0.3, 0.3)
+
+[node name="targetimg" type="Sprite2D" parent="target"]
+texture = ExtResource("1_u34la")
+flip_v = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="target"]
+position = Vector2(0.5, 0)
+shape = SubResource("RectangleShape2D_5qrtu")
+
+[node name="character" type="CharacterBody2D" parent="."]
+position = Vector2(1029, 554)
+scale = Vector2(0.3, 0.3)
+collision_layer = 2
+collision_mask = 3
+script = ExtResource("3_ngfp4")
+target = NodePath("../target")
+
+[node name="characterimg" type="Sprite2D" parent="character"]
+position = Vector2(-4.00543e-05, 0)
+texture = ExtResource("1_u34la")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="character"]
+position = Vector2(-4.00543e-05, 9.53674e-06)
+shape = SubResource("RectangleShape2D_ngfp4")
+
+[node name="character2" type="CharacterBody2D" parent="."]
+position = Vector2(240, 150)
+scale = Vector2(0.3, 0.3)
+collision_layer = 2
+collision_mask = 3
+script = ExtResource("3_ngfp4")
+target = NodePath("../target")
+
+[node name="characterimg" type="Sprite2D" parent="character2"]
+position = Vector2(-0.000244141, 3.33334)
+texture = ExtResource("1_u34la")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="character2"]
+position = Vector2(-0.000203371, 3.33334)
+shape = SubResource("RectangleShape2D_ngfp4")
+
+[node name="WallTop" type="StaticBody2D" parent="."]
+position = Vector2(650, 15)
+collision_layer = 3
+
+[node name="ColorRect" type="ColorRect" parent="WallTop"]
+offset_left = -650.0
+offset_top = -15.0
+offset_right = 650.0
+offset_bottom = 15.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallTop"]
+shape = SubResource("RectangleShape2D_wall_horizontal")
+
+[node name="WallBottom" type="StaticBody2D" parent="."]
+position = Vector2(650, 1470)
+collision_layer = 3
+
+[node name="ColorRect" type="ColorRect" parent="WallBottom"]
+offset_left = -650.0
+offset_top = -15.0
+offset_right = 650.0
+offset_bottom = 15.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallBottom"]
+shape = SubResource("RectangleShape2D_wall_horizontal")
+
+[node name="WallLeft" type="StaticBody2D" parent="."]
+position = Vector2(15, 450)
+collision_layer = 3
+
+[node name="ColorRect" type="ColorRect" parent="WallLeft"]
+offset_left = -15.0
+offset_top = -450.0
+offset_right = 15.0
+offset_bottom = 1050.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft"]
+position = Vector2(0, 294)
+shape = SubResource("RectangleShape2D_wall_vertical")
+
+[node name="WallRight" type="StaticBody2D" parent="."]
+position = Vector2(1285, 450)
+collision_layer = 3
+
+[node name="ColorRect" type="ColorRect" parent="WallRight"]
+offset_left = -15.0
+offset_top = -450.0
+offset_right = 15.0
+offset_bottom = 1050.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight"]
+position = Vector2(-2, 289)
+shape = SubResource("RectangleShape2D_wall_vertical")
