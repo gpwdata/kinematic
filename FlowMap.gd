@@ -8,8 +8,16 @@ var grid_height: int = 0
 var world_size: Vector2 = Vector2.ZERO
 
 # Flow map data
-var flow_vectors: Array[Array] = []  # Array[Array[Vector2]]
+var flow_vectors: Array[Array] = []  # Array[Array[Vector2]] - Final combined flow (static + congestion)
 var previous_flow_vectors: Array[Array] = []  # For smoothing
+var static_flow_vectors: Array[Array] = []  # Static flow (goal + obstacles) - calculated once
+var congestion_vectors: Array[Array] = []  # Congestion map (agent repulsion) - updated every frame
+var previous_congestion_vectors: Array[Array] = []  # For smoothing congestion
+
+# Static map state
+var static_map_calculated: bool = false
+var cached_goal_area: Dictionary = {}
+var cached_obstacles: Array = []
 
 # Repulsion parameters
 @export var repulsion_radius: float = 100.0  # How far agents affect flow
@@ -46,14 +54,31 @@ func initialize(world_size_param: Vector2, cell_size_param: float):
 	# Initialize flow vectors arrays
 	flow_vectors.clear()
 	previous_flow_vectors.clear()
+	static_flow_vectors.clear()
+	congestion_vectors.clear()
+	previous_congestion_vectors.clear()
+	
 	for y in range(grid_height):
 		var row: Array[Vector2] = []
 		var prev_row: Array[Vector2] = []
+		var static_row: Array[Vector2] = []
+		var congestion_row: Array[Vector2] = []
+		var prev_congestion_row: Array[Vector2] = []
 		for x in range(grid_width):
 			row.append(Vector2(1.0, 0.0))  # Default to right
 			prev_row.append(Vector2(1.0, 0.0))
+			static_row.append(Vector2(1.0, 0.0))
+			congestion_row.append(Vector2.ZERO)  # Congestion starts at zero
+			prev_congestion_row.append(Vector2.ZERO)
 		flow_vectors.append(row)
 		previous_flow_vectors.append(prev_row)
+		static_flow_vectors.append(static_row)
+		congestion_vectors.append(congestion_row)
+		previous_congestion_vectors.append(prev_congestion_row)
+	
+	static_map_calculated = false
+	cached_goal_area.clear()
+	cached_obstacles.clear()
 	
 	print("FlowMap initialized: ", grid_width, "x", grid_height, " cells (", cell_size, "px each)")
 	# Enable drawing and set z-index to draw behind agents
@@ -62,35 +87,50 @@ func initialize(world_size_param: Vector2, cell_size_param: float):
 		set_process(true)
 
 func recalculate(agent_positions: Array, goal_area: Dictionary, obstacles: Array = []):
-	# Clear spatial grid if using spatial hashing
-	if use_spatial_hashing:
-		spatial_grid.clear()
-		_build_spatial_grid(agent_positions)
+	# Check if static map needs recalculation (goal or obstacles changed)
+	var static_changed = not static_map_calculated
+	if not static_changed:
+		# Compare goal area values
+		if cached_goal_area.get("x", 0.0) != goal_area.get("x", 0.0) or \
+		   cached_goal_area.get("min_y", 0.0) != goal_area.get("min_y", 0.0) or \
+		   cached_goal_area.get("max_y", 0.0) != goal_area.get("max_y", 0.0):
+			static_changed = true
+		
+		# Compare obstacles (simple length check - could be improved)
+		if cached_obstacles.size() != obstacles.size():
+			static_changed = true
+		else:
+			# Compare each obstacle (position and size)
+			for i in range(obstacles.size()):
+				var old_obs = cached_obstacles[i]
+				var new_obs = obstacles[i]
+				if old_obs.get("position", Vector2.ZERO) != new_obs.get("position", Vector2.ZERO) or \
+				   old_obs.get("size", Vector2.ZERO) != new_obs.get("size", Vector2.ZERO):
+					static_changed = true
+					break
 	
-	# Store previous flow vectors for smoothing
-	for y in range(grid_height):
-		for x in range(grid_width):
-			previous_flow_vectors[y][x] = flow_vectors[y][x]
+	if static_changed:
+		_calculate_static_flow_map(goal_area, obstacles)
+		cached_goal_area = goal_area.duplicate(true)
+		cached_obstacles = obstacles.duplicate(true)
+		static_map_calculated = true
 	
-	# Recalculate flow vector for each cell
-	for y in range(grid_height):
-		for x in range(grid_width):
-			var cell_pos = grid_to_world(Vector2i(x, y))
-			var new_flow = _calculate_flow_vector(cell_pos, agent_positions, goal_area, obstacles)
-			
-			# Smooth the flow vector to prevent jittering
-			# smoothing_factor: 0 = no smoothing (use new), 1 = full smoothing (keep old)
-			# lerp(old, new, t) where t=0 keeps old, t=1 uses new
-			# So we use (1.0 - smoothing_factor) to get the right blend
-			if smoothing_factor > 0.0:
-				var blend = 1.0 - smoothing_factor  # Higher smoothing = less new value
-				flow_vectors[y][x] = previous_flow_vectors[y][x].lerp(new_flow, blend)
-			else:
-				flow_vectors[y][x] = new_flow
+	# Update congestion map (agent repulsion) - only cells near agents
+	_update_congestion_map(agent_positions)
+	
+	# Combine static flow map with congestion map to get final flow vectors
+	_combine_flow_maps()
 
-func _calculate_flow_vector(cell_pos: Vector2, agent_positions: Array, goal_area: Dictionary, obstacles: Array = []) -> Vector2:
+func _calculate_static_flow_map(goal_area: Dictionary, obstacles: Array):
+	# Calculate static flow map once (goal + obstacles, no agents)
+	for y in range(grid_height):
+		for x in range(grid_width):
+			# Use cell center for more accurate calculations
+			var cell_pos = grid_to_world(Vector2i(x, y)) + Vector2(cell_size * 0.5, cell_size * 0.5)
+			static_flow_vectors[y][x] = _calculate_static_flow_vector(cell_pos, goal_area, obstacles)
+
+func _calculate_static_flow_vector(cell_pos: Vector2, goal_area: Dictionary, obstacles: Array) -> Vector2:
 	# 1. Goal direction (point toward goal area)
-	# goal_area is {x: float, min_y: float, max_y: float}
 	var goal_x = goal_area["x"]
 	var goal_min_y = goal_area["min_y"]
 	var goal_max_y = goal_area["max_y"]
@@ -103,37 +143,98 @@ func _calculate_flow_vector(cell_pos: Vector2, agent_positions: Array, goal_area
 	if to_goal.length() > 0.001:
 		goal_dir = to_goal.normalized()
 	
-	# 2. Calculate repulsion from nearby agents
-	var repulsion = Vector2.ZERO
-	
-	if use_spatial_hashing:
-		# Only check agents in nearby spatial buckets
-		var nearby_agents = _get_nearby_agents(cell_pos, agent_positions)
-		for agent_pos in nearby_agents:
-			repulsion += _calculate_repulsion(cell_pos, agent_pos)
-	else:
-		# Check all agents (slower but simpler)
-		for agent_pos in agent_positions:
-			repulsion += _calculate_repulsion(cell_pos, agent_pos)
-	
-	# 3. Calculate repulsion from obstacles
+	# 2. Calculate repulsion from obstacles (no agents)
 	var obstacle_repulsion = Vector2.ZERO
 	for obstacle in obstacles:
 		obstacle_repulsion += _calculate_obstacle_repulsion(cell_pos, obstacle)
 	
-	# 4. Blend goal direction with repulsions
-	# If there's strong obstacle repulsion, reduce goal weight to let repulsion dominate
+	# 3. Blend goal direction with obstacle repulsion
 	var effective_goal_weight = goal_weight
 	if obstacle_repulsion.length() > 2.0:
 		effective_goal_weight = goal_weight * 0.5  # Reduce goal influence when near obstacles
 	
-	var flow = goal_dir * effective_goal_weight + repulsion + obstacle_repulsion
+	var flow = goal_dir * effective_goal_weight + obstacle_repulsion
 	
-	# 5. Normalize to get direction
+	# 4. Normalize to get direction
 	if flow.length() > 0.001:
 		return flow.normalized()
 	else:
 		return goal_dir  # Fallback to goal direction
+
+func _update_congestion_map(agent_positions: Array):
+	# Clear spatial grid if using spatial hashing
+	if use_spatial_hashing:
+		spatial_grid.clear()
+		_build_spatial_grid(agent_positions)
+	
+	# Store previous congestion vectors for smoothing
+	for y in range(grid_height):
+		for x in range(grid_width):
+			previous_congestion_vectors[y][x] = congestion_vectors[y][x]
+			# Reset congestion to zero (will be accumulated from agents)
+			congestion_vectors[y][x] = Vector2.ZERO
+	
+	# Instead of iterating over all cells, iterate over agents and update nearby cells
+	for agent_pos in agent_positions:
+		_update_cells_near_agent(agent_pos)
+	
+	# Apply smoothing to congestion map
+	if smoothing_factor > 0.0:
+		var blend = 1.0 - smoothing_factor
+		for y in range(grid_height):
+			for x in range(grid_width):
+				congestion_vectors[y][x] = previous_congestion_vectors[y][x].lerp(congestion_vectors[y][x], blend)
+
+func _update_cells_near_agent(agent_pos: Vector2):
+	# Find all grid cells within repulsion_radius of this agent
+	var agent_grid_pos = world_to_grid(agent_pos)
+	var radius_in_cells = ceil(repulsion_radius / cell_size)
+	
+	# Calculate bounds of cells to check
+	var min_x = max(0, agent_grid_pos.x - radius_in_cells)
+	var max_x = min(grid_width - 1, agent_grid_pos.x + radius_in_cells)
+	var min_y = max(0, agent_grid_pos.y - radius_in_cells)
+	var max_y = min(grid_height - 1, agent_grid_pos.y + radius_in_cells)
+	
+	# Update each cell within range
+	for y in range(min_y, max_y + 1):
+		for x in range(min_x, max_x + 1):
+			var cell_pos = grid_to_world(Vector2i(x, y)) + Vector2(cell_size * 0.5, cell_size * 0.5)
+			var repulsion = _calculate_repulsion(cell_pos, agent_pos)
+			# Accumulate repulsion from this agent
+			congestion_vectors[y][x] += repulsion
+
+func _combine_flow_maps():
+	# Combine static flow map with congestion map
+	# Store previous flow vectors for smoothing
+	for y in range(grid_height):
+		for x in range(grid_width):
+			previous_flow_vectors[y][x] = flow_vectors[y][x]
+			
+			# Combine static flow (goal + obstacles) with congestion (agent repulsion)
+			var static_flow = static_flow_vectors[y][x]
+			var congestion = congestion_vectors[y][x]
+			
+			# Blend: static flow provides base direction, congestion adds repulsion
+			# If there's strong congestion, reduce static flow influence
+			var effective_static_weight = goal_weight
+			if congestion.length() > 1.0:
+				effective_static_weight = goal_weight * 0.7  # Reduce static influence when congested
+			
+			var combined_flow = static_flow * effective_static_weight + congestion
+			
+			# Normalize
+			if combined_flow.length() > 0.001:
+				flow_vectors[y][x] = combined_flow.normalized()
+			else:
+				flow_vectors[y][x] = static_flow  # Fallback to static flow
+			
+			# Apply smoothing to final flow vectors
+			if smoothing_factor > 0.0:
+				var blend = 1.0 - smoothing_factor
+				flow_vectors[y][x] = previous_flow_vectors[y][x].lerp(flow_vectors[y][x], blend)
+
+# Old _calculate_flow_vector removed - functionality split into _calculate_static_flow_vector and _update_congestion_map
 
 func _calculate_repulsion(cell_pos: Vector2, agent_pos: Vector2) -> Vector2:
 	var to_cell = cell_pos - agent_pos
