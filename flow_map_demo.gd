@@ -7,8 +7,8 @@ extends Node2D
 @export var flow_map_cell_size: float = 80.0  # Grid cell size (should be 1.5-2x agent collision radius)
 @export var repulsion_radius: float = 100.0  # How far agents affect flow
 @export var repulsion_strength: float = 2.5  # Strength of repulsion
-@export var obstacle_repulsion_radius: float = 200.0  # How far obstacles affect flow
-@export var obstacle_repulsion_strength: float = 55.0  # Strength of obstacle repulsion
+@export var obstacle_repulsion_radius: float = 300.0  # How far obstacles affect flow
+@export var obstacle_repulsion_strength: float = 85.0  # Strength of obstacle repulsion
 @export var front_repulsion_multiplier: float = 1.5  # Multiplier for front side (strongest)
 @export var top_bottom_repulsion_multiplier: float = 0.5  # Multiplier for top/bottom sides (weaker)
 @export var back_repulsion_multiplier: float = 0.2  # Multiplier for back side (weakest)
